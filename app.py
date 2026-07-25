@@ -494,22 +494,41 @@ def main():
 
     with tab3:
         st.subheader("Scenario Replay")
+if "timestamp" in analyzed.columns:
+    timestamps = (
+        analyzed["timestamp"]
+        .dropna()
+        .drop_duplicates()
+        .sort_values()
+    )
 
-        if "timestamp" in analyzed.columns:
-            timestamps = analyzed["timestamp"].dropna().drop_duplicates().sort_values()
-            if len(timestamps) > 1:
-                selected_time = st.slider(
-                    "Replay timestamp",
-                    min_value=timestamps.iloc[0].to_pydatetime(),
-                    max_value=timestamps.iloc[-1].to_pydatetime(),
-                    value=timestamps.iloc[0].to_pydatetime(),
-                )
-                current = analyzed[analyzed["timestamp"] <= pd.Timestamp(selected_time, tz="UTC")]
-            else:
-                current = analyzed
+    if len(timestamps) > 1:
+        min_time = timestamps.iloc[0].to_pydatetime()
+        max_time = timestamps.iloc[-1].to_pydatetime()
+
+        selected_time = st.slider(
+            "Replay timestamp",
+            min_value=min_time,
+            max_value=max_time,
+            value=min_time,
+        )
+
+        # Normalize Streamlit's datetime to UTC-aware Timestamp.
+        selected_ts = pd.Timestamp(selected_time)
+
+        if selected_ts.tzinfo is None:
+            selected_ts = selected_ts.tz_localize("UTC")
         else:
-            current = analyzed
+            selected_ts = selected_ts.tz_convert("UTC")
 
+        current = analyzed[
+            analyzed["timestamp"] <= selected_ts
+        ].copy()
+
+    else:
+        current = analyzed.copy()
+else:
+    current = analyzed.copy()
         if {"latitude", "longitude"}.issubset(current.columns):
             fig = px.scatter_map(
                 current,
